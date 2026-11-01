@@ -10,5 +10,11 @@
     <string name="pass">Pass</string>
     <string name="end_turn">End turn</string>
     <string name="new_game">New game</string>
+    <string name="difficulty_easy">Easy</string>
+    <string name="difficulty_medium">Medium</string>
+    <string name="difficulty_label">Difficulty: %1$s</string>
+    <string name="new_game_title">New game</string>
+    <string name="new_game_message">Choose the opponent\'s level. The game in progress will be abandoned.</string>
+    <string name="cancel">Cancel</string>
     <string name="draw_pile">Draw pile: %1$d</string>
 </resources>

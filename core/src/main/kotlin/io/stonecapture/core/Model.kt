@@ -1,13 +1,17 @@
 package io.stonecapture.core
 
+import kotlinx.serialization.Serializable
+
 const val STONE_COUNT = 9
 const val SIDE_CAPACITY = 3
 const val HAND_SIZE = 6
 const val STONES_TO_WIN = 5
 const val ADJACENT_TO_WIN = 3
 
+@Serializable
 enum class CardColor { RED, BLUE, GREEN, YELLOW, PURPLE, ORANGE }
 
+@Serializable
 data class Card(val color: CardColor, val rank: Int) {
     init {
         require(rank in MIN_RANK..MAX_RANK) { "rank must be in $MIN_RANK..$MAX_RANK, was $rank" }
@@ -21,6 +25,7 @@ data class Card(val color: CardColor, val rank: Int) {
     }
 }
 
+@Serializable
 enum class Player {
     A,
     B;
@@ -42,6 +47,7 @@ data class FormationValue(val formation: Formation, val sum: Int) : Comparable<F
  * [completedAt] is the state's move counter at the moment the third card was placed. It orders
  * completions across stones and players, which is what resolves equal formations.
  */
+@Serializable
 data class Side(val cards: List<Card> = emptyList(), val completedAt: Int? = null) {
     init {
         require(cards.size <= SIDE_CAPACITY) { "a side holds at most $SIDE_CAPACITY cards" }
@@ -51,6 +57,7 @@ data class Side(val cards: List<Card> = emptyList(), val completedAt: Int? = nul
     val isFull: Boolean get() = cards.size == SIDE_CAPACITY
 }
 
+@Serializable
 data class Stone(
     val index: Int,
     val sideA: Side = Side(),
@@ -65,8 +72,10 @@ data class Stone(
     val isOpen: Boolean get() = owner == null
 }
 
+@Serializable
 enum class Phase { PLAY, CLAIM, FINISHED }
 
+@Serializable
 data class GameState(
     val stones: List<Stone>,
     val handA: List<Card>,
