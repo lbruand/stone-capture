@@ -3,16 +3,13 @@ package io.stonecapture
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.stonecapture.core.Action
 import io.stonecapture.core.Card
-import io.stonecapture.core.GameState
 import io.stonecapture.core.Phase
-import io.stonecapture.core.Player
 import io.stonecapture.core.SavedGame
 import io.stonecapture.core.StoneCaptureEngine
 import io.stonecapture.core.bot.Bot
 import io.stonecapture.core.bot.Difficulty
-import io.stonecapture.core.bot.viewFor
+import io.stonecapture.core.session.GameSession
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,101 +18,82 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
-data class UiState(val game: GameState, val difficulty: Difficulty, val selected: Card? = null)
-
 class GameViewModel(application: Application) : AndroidViewModel(application) {
-    private val engine = StoneCaptureEngine
     private val store = GameStore(application)
     private var bot: Bot = Difficulty.MEDIUM.createBot(System.nanoTime())
-    val human = Player.A
 
-    private val _state = MutableStateFlow<UiState?>(null)
+    private val _session = MutableStateFlow<GameSession?>(null)
 
     /** Null until the saved game (if any) has been read. */
-    val state: StateFlow<UiState?> = _state.asStateFlow()
+    val session: StateFlow<GameSession?> = _session.asStateFlow()
+
+    private val _autoClaim = MutableStateFlow(false)
+    val autoClaim: StateFlow<Boolean> = _autoClaim.asStateFlow()
 
     private var botJob: Job? = null
 
     init {
         viewModelScope.launch {
+            _autoClaim.value = store.loadAutoClaim()
             val saved = store.loadGame()
             if (saved != null) {
-                start(saved.state, saved.difficulty)
+                start(GameSession(saved.state, saved.difficulty))
             } else {
-                start(engine.newGame(), store.loadDifficulty())
+                start(GameSession(StoneCaptureEngine.newGame(), store.loadDifficulty()))
             }
         }
         // Autosave after every move; a finished game is not worth resuming.
         viewModelScope.launch {
-            _state.filterNotNull().collect { ui ->
-                if (ui.game.phase == Phase.FINISHED) store.clearGame() else store.saveGame(SavedGame(ui.difficulty, ui.game))
+            _session.filterNotNull().collect { s ->
+                if (s.isFinished) store.clearGame() else store.saveGame(SavedGame(s.difficulty, s.game))
             }
         }
     }
 
     fun newGame(difficulty: Difficulty) {
         viewModelScope.launch { store.saveDifficulty(difficulty) }
-        start(engine.newGame(), difficulty)
+        start(GameSession(StoneCaptureEngine.newGame(), difficulty))
     }
 
-    private fun start(game: GameState, difficulty: Difficulty) {
-        botJob?.cancel()
-        bot = difficulty.createBot(System.nanoTime())
-        _state.value = UiState(game, difficulty)
+    fun setAutoClaim(enabled: Boolean) {
+        _autoClaim.value = enabled
+        viewModelScope.launch { store.saveAutoClaim(enabled) }
+        _session.value?.let { _session.value = withAutoClaim(it) }
+    }
+
+    fun select(card: Card) = update { it.select(card) }
+
+    fun tapStone(index: Int) = update { it.tapStone(index) }
+
+    fun pass() = update { it.pass() }
+
+    fun endTurn() = update { it.endTurn() }
+
+    private fun start(session: GameSession) {
+        bot = session.difficulty.createBot(System.nanoTime())
+        _session.value = withAutoClaim(session)
         runBotIfNeeded()
     }
 
-    fun select(card: Card) {
-        val ui = _state.value ?: return
-        if (!isHumanTurn(Phase.PLAY)) return
-        _state.value = ui.copy(selected = card.takeUnless { it == ui.selected })
-    }
-
-    fun tapStone(index: Int) {
-        val ui = _state.value ?: return
-        when {
-            isHumanTurn(Phase.PLAY) && ui.selected != null -> dispatch(Action.PlayCard(ui.selected, index))
-            isHumanTurn(Phase.CLAIM) && engine.canClaim(ui.game, index, human) -> dispatch(Action.Claim(index))
-        }
-    }
-
-    fun pass() = dispatch(Action.Pass)
-
-    fun endTurn() = dispatch(Action.EndTurn)
-
-    fun canClaim(index: Int): Boolean {
-        val ui = _state.value ?: return false
-        return isHumanTurn(Phase.CLAIM) && engine.canClaim(ui.game, index, human)
-    }
-
-    fun canPass(): Boolean {
-        val ui = _state.value ?: return false
-        return isHumanTurn(Phase.PLAY) && engine.legalActions(ui.game) == listOf(Action.Pass)
-    }
-
-    private fun isHumanTurn(phase: Phase): Boolean {
-        val game = _state.value?.game ?: return false
-        return game.current == human && game.phase == phase
-    }
-
-    private fun dispatch(action: Action) {
-        val ui = _state.value ?: return
-        if (ui.game.current != human) return
-        val next = engine.apply(ui.game, action).getOrNull() ?: return
-        _state.value = UiState(next, ui.difficulty)
+    private fun update(change: (GameSession) -> GameSession) {
+        val current = _session.value ?: return
+        val next = withAutoClaim(change(current))
+        if (next == current) return
+        _session.value = next
         runBotIfNeeded()
     }
+
+    private fun withAutoClaim(session: GameSession): GameSession =
+        if (_autoClaim.value && session.game.phase == Phase.CLAIM) session.autoClaim() else session
 
     private fun runBotIfNeeded() {
         botJob?.cancel()
         botJob = viewModelScope.launch {
             while (true) {
-                val ui = _state.value ?: return@launch
-                val game = ui.game
-                if (game.phase == Phase.FINISHED || game.current == human) return@launch
+                val current = _session.value ?: return@launch
+                if (!current.isBotTurn) return@launch
                 delay(BOT_DELAY_MS)
-                val action = bot.choose(game.viewFor(game.current), engine.legalActions(game))
-                _state.value = UiState(engine.apply(game, action).getOrThrow(), ui.difficulty)
+                _session.value = current.botStep(bot)
             }
         }
     }

@@ -16,5 +16,6 @@
     <string name="new_game_title">New game</string>
     <string name="new_game_message">Choose the opponent\'s level. The game in progress will be abandoned.</string>
     <string name="cancel">Cancel</string>
+    <string name="auto_claim">Auto-claim</string>
     <string name="draw_pile">Draw pile: %1$d</string>
 </resources>

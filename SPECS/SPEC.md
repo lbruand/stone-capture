@@ -230,7 +230,7 @@ never read the opponent's hand or the draw pile order.
 
 1. **Home:** New game, Continue, Settings, How to play.
 2. **Game board:** see 6.2.
-3. **Settings:** difficulty, sound on/off, color-blind mode.
+3. **Settings:** difficulty, auto-claim, sound on/off, color-blind mode.
 4. **How to play:** short illustrated rules (own wording and art).
 5. **Game over:** result, stones summary, rematch.
 
@@ -282,7 +282,7 @@ English only. Strings still live in Android resources (not hard-coded) to keep t
 
 ## 9. Build, CI and tooling
 
-- GitHub Actions: build, unit tests, lint (ktlint/detekt) on every push and PR.
+- GitHub Actions (`.github/workflows/ci.yml`): core unit tests, Android lint and a debug build on every push to `main` and on every PR. ktlint/detekt may be added later.
 - Release build: signed AAB through a documented manual step (keystore not in repo).
 - Package name: `io.stonecapture`.
 

@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,9 +55,10 @@ private val COLUMN_GAP = 4.dp
 
 @Composable
 fun GameScreen(viewModel: GameViewModel) {
-    val ui = viewModel.state.collectAsState().value ?: return
+    val ui = viewModel.session.collectAsState().value ?: return
+    val autoClaim by viewModel.autoClaim.collectAsState()
     val game = ui.game
-    val me = viewModel.human
+    val me = ui.human
     var askingNewGame by rememberSaveable { mutableStateOf(false) }
 
     Row(
@@ -72,8 +74,7 @@ fun GameScreen(viewModel: GameViewModel) {
                         stone = stone,
                         me = me,
                         cardHeight = cardHeight,
-                        highlighted = viewModel.canClaim(stone.index) ||
-                            (ui.selected != null && stone.isOpen && !stone.side(me).isFull && game.current == me),
+                        highlighted = ui.canClaim(stone.index) || ui.isPlayTarget(stone.index),
                         onClick = { viewModel.tapStone(stone.index) },
                     )
                 }
@@ -87,34 +88,35 @@ fun GameScreen(viewModel: GameViewModel) {
         ) {
             Text(
                 statusText(game.phase, game.current == me, game.winner, me),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 textAlign = TextAlign.Center,
             )
-            Text(stringResource(R.string.draw_pile, game.drawPile.size), style = MaterialTheme.typography.bodyMedium)
 
             for (row in game.hand(me).chunked(HAND_COLUMNS)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (card in row) {
-                        CardView(card, width = 68.dp, height = 76.dp, selected = card == ui.selected, onClick = { viewModel.select(card) })
+                        CardView(card, width = 68.dp, height = 64.dp, selected = card == ui.selected, onClick = { viewModel.select(card) })
                     }
                 }
             }
 
-            if (viewModel.canPass()) Button(onClick = viewModel::pass) { Text(stringResource(R.string.pass)) }
+            if (ui.canPass()) Button(onClick = viewModel::pass) { Text(stringResource(R.string.pass)) }
             if (game.phase == Phase.CLAIM && game.current == me) {
                 Button(onClick = viewModel::endTurn) { Text(stringResource(R.string.end_turn)) }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    stringResource(R.string.difficulty_label, stringResource(ui.difficulty.label())),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                if (game.phase == Phase.FINISHED) {
-                    Button(onClick = { askingNewGame = true }) { Text(stringResource(R.string.new_game)) }
-                } else {
-                    TextButton(onClick = { askingNewGame = true }) { Text(stringResource(R.string.new_game)) }
-                }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.auto_claim), style = MaterialTheme.typography.bodySmall)
+                Switch(checked = autoClaim, onCheckedChange = viewModel::setAutoClaim)
+            }
+            Text(
+                stringResource(R.string.draw_pile, game.drawPile.size) + " · " + stringResource(ui.difficulty.label()),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (game.phase == Phase.FINISHED) {
+                Button(onClick = { askingNewGame = true }) { Text(stringResource(R.string.new_game)) }
+            } else {
+                TextButton(onClick = { askingNewGame = true }) { Text(stringResource(R.string.new_game)) }
             }
         }
     }

@@ -3,6 +3,7 @@ package io.stonecapture
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -31,6 +32,17 @@ class GameStore(context: Context) {
         dataStore.edit { it.remove(GAME) }
     }
 
+    suspend fun loadAutoClaim(): Boolean = dataStore.data.first()[AUTO_CLAIM] ?: false
+
+    suspend fun saveAutoClaim(enabled: Boolean) {
+        dataStore.edit { it[AUTO_CLAIM] = enabled }
+    }
+
+    /** Stores an already encoded save as is. Only used by the debug entry point in [MainActivity]. */
+    suspend fun saveRawGame(text: String) {
+        dataStore.edit { it[GAME] = text }
+    }
+
     suspend fun saveDifficulty(difficulty: Difficulty) {
         dataStore.edit { it[DIFFICULTY] = difficulty.name }
     }
@@ -38,5 +50,6 @@ class GameStore(context: Context) {
     private companion object {
         val GAME = stringPreferencesKey("game")
         val DIFFICULTY = stringPreferencesKey("difficulty")
+        val AUTO_CLAIM = booleanPreferencesKey("auto_claim")
     }
 }
