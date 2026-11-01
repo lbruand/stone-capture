@@ -206,7 +206,14 @@ interface GameEngine {
 Interface:
 
 ```kotlin
-interface Bot { fun chooseActions(state: GameState, me: Player): List<Action> }
+interface Bot { fun choose(view: BotView, legal: List<Action>): Action }
+```
+
+A bot picks one action at a time and is called again until the turn ends. `BotView` holds only
+the board, the bot's own hand and public counts (opponent hand size, draw pile size), so peeking
+is impossible by construction.
+
+```kotlin
 ```
 
 Difficulty levels:
