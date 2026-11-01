@@ -161,20 +161,20 @@ enum class Player { A, B; fun other(): Player }
 
 enum class Formation { MIXED, STRAIGHT, FLUSH, TRIPLE, STRAIGHT_FLUSH }
 
-data class Side(val cards: List<Card>, val completedAtTurn: Int?)  // cards.size <= 3
+data class Side(val cards: List<Card>, val completedAt: Int?)  // completedAt = move counter
 
-sealed interface StoneOwner { object None; data class Claimed(val by: Player) }
+data class Stone(val index: Int, val sideA: Side, val sideB: Side, val owner: Player?)
 
-data class Stone(val index: Int, val sides: Map<Player, Side>, val owner: StoneOwner)
+enum class Phase { PLAY, CLAIM, FINISHED }
 
 data class GameState(
     val stones: List<Stone>,          // size 9
-    val hands: Map<Player, List<Card>>,
-    val drawPile: List<Card>,
+    val handA: List<Card>, val handB: List<Card>,
+    val drawPile: List<Card>,         // top of the pile is the first element
     val current: Player,
-    val turn: Int,
-    val phase: Phase,                 // CLAIM_OR_PLAY, MUST_DRAW, FINISHED
-    val winner: Player?,
+    val moveCount: Int,               // orders side completions (tie-break)
+    val phase: Phase,                 // PLAY -> CLAIM -> (next player) PLAY ... FINISHED
+    val winner: Player?,              // null with FINISHED means a draw
 )
 ```
 
@@ -186,15 +186,15 @@ State is **immutable**; every transition returns a new `GameState`.
 sealed interface Action {
     data class PlayCard(val card: Card, val stoneIndex: Int) : Action
     data class Claim(val stoneIndex: Int) : Action
+    object Pass : Action             // only when no card can be placed
     object EndTurn : Action          // draws and passes the turn
 }
 
 interface GameEngine {
-    fun newGame(seed: Long? = null): GameState
+    fun newGame(seed: Long? = null, firstPlayer: Player? = null): GameState
     fun legalActions(state: GameState): List<Action>
     fun apply(state: GameState, action: Action): Result<GameState>
-    fun canClaim(state: GameState, stone: Int, player: Player): Boolean
-    fun evaluate(side: Side): FormationValue      // (Formation, sum) comparable
+    fun canClaim(state: GameState, stoneIndex: Int, player: Player): Boolean
 }
 ```
 
