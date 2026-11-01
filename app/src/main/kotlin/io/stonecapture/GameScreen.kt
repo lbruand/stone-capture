@@ -6,14 +6,17 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.stonecapture.core.Card
@@ -36,40 +41,56 @@ import io.stonecapture.core.SIDE_CAPACITY
 import io.stonecapture.core.Side
 import io.stonecapture.core.Stone
 
+private val STONE_LABEL_HEIGHT = 36.dp
+private val COLUMN_GAP = 4.dp
+
 @Composable
 fun GameScreen(viewModel: GameViewModel) {
     val ui by viewModel.state.collectAsState()
     val game = ui.game
     val me = viewModel.human
 
-    Column(
+    Row(
         modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(statusText(game.phase, game.current == me, game.winner, me), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.draw_pile, game.drawPile.size))
-        }
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (stone in game.stones) {
-                StoneColumn(
-                    stone = stone,
-                    me = me,
-                    highlighted = viewModel.canClaim(stone.index) ||
-                        (ui.selected != null && stone.isOpen && !stone.side(me).isFull && game.current == me),
-                    onClick = { viewModel.tapStone(stone.index) },
-                )
+        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            // Six card slots plus the stone label stack vertically; size the cards to fit.
+            val cardHeight = ((maxHeight - STONE_LABEL_HEIGHT - 24.dp) / SIDE_CAPACITY / 2).coerceIn(24.dp, 72.dp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(COLUMN_GAP)) {
+                for (stone in game.stones) {
+                    StoneColumn(
+                        stone = stone,
+                        me = me,
+                        cardHeight = cardHeight,
+                        highlighted = viewModel.canClaim(stone.index) ||
+                            (ui.selected != null && stone.isOpen && !stone.side(me).isFull && game.current == me),
+                        onClick = { viewModel.tapStone(stone.index) },
+                    )
+                }
             }
         }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-            for (card in game.hand(me)) {
-                CardView(card, selected = card == ui.selected, onClick = { viewModel.select(card) })
-            }
-        }
+        Column(
+            modifier = Modifier.width(232.dp).fillMaxHeight(),
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                statusText(game.phase, game.current == me, game.winner, me),
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+            )
+            Text(stringResource(R.string.draw_pile, game.drawPile.size), style = MaterialTheme.typography.bodyMedium)
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+            for (row in game.hand(me).chunked(HAND_COLUMNS)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (card in row) {
+                        CardView(card, width = 68.dp, height = 88.dp, selected = card == ui.selected, onClick = { viewModel.select(card) })
+                    }
+                }
+            }
+
             if (viewModel.canPass()) Button(onClick = viewModel::pass) { Text(stringResource(R.string.pass)) }
             if (game.phase == Phase.CLAIM && game.current == me) {
                 Button(onClick = viewModel::endTurn) { Text(stringResource(R.string.end_turn)) }
@@ -80,6 +101,8 @@ fun GameScreen(viewModel: GameViewModel) {
         }
     }
 }
+
+private const val HAND_COLUMNS = 3
 
 @Composable
 private fun statusText(phase: Phase, myTurn: Boolean, winner: Player?, me: Player): String = when {
@@ -96,7 +119,7 @@ private fun statusText(phase: Phase, myTurn: Boolean, winner: Player?, me: Playe
 }
 
 @Composable
-private fun RowScope.StoneColumn(stone: Stone, me: Player, highlighted: Boolean, onClick: () -> Unit) {
+private fun RowScope.StoneColumn(stone: Stone, me: Player, cardHeight: Dp, highlighted: Boolean, onClick: () -> Unit) {
     val ownerColor = when (stone.owner) {
         null -> Color.Gray
         me -> Color(0xFF2E7D32)
@@ -110,41 +133,59 @@ private fun RowScope.StoneColumn(stone: Stone, me: Player, highlighted: Boolean,
                 RoundedCornerShape(6.dp),
             )
             .clickable(onClick = onClick)
-            .padding(2.dp),
+            .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        SideView(stone.side(me.other()), reversed = true)
-        Box(Modifier.fillMaxWidth().background(ownerColor, RoundedCornerShape(4.dp)).padding(vertical = 6.dp), Alignment.Center) {
+        SideView(stone.side(me.other()), cardHeight, reversed = true)
+        Box(
+            Modifier.fillMaxWidth().height(STONE_LABEL_HEIGHT).background(ownerColor, RoundedCornerShape(4.dp)),
+            Alignment.Center,
+        ) {
             Text("${stone.index + 1}", color = Color.White, fontWeight = FontWeight.Bold)
         }
-        SideView(stone.side(me), reversed = false)
+        SideView(stone.side(me), cardHeight, reversed = false)
     }
 }
 
 @Composable
-private fun SideView(side: Side, reversed: Boolean) {
+private fun SideView(side: Side, cardHeight: Dp, reversed: Boolean) {
     val slots = List(SIDE_CAPACITY) { side.cards.getOrNull(it) }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         for (card in if (reversed) slots.reversed() else slots) {
-            if (card != null) CardView(card, small = true) else Box(Modifier.size(width = 36.dp, height = 28.dp))
+            if (card != null) {
+                CardView(card, width = null, height = cardHeight)
+            } else {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(cardHeight)
+                        .border(BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.6f)), RoundedCornerShape(4.dp)),
+                )
+            }
         }
     }
 }
 
+/** A card of fixed [width], or one that fills the available width when [width] is null. */
 @Composable
-private fun CardView(card: Card, selected: Boolean = false, small: Boolean = false, onClick: (() -> Unit)? = null) {
-    val width = if (small) 36.dp else 48.dp
-    val height = if (small) 28.dp else 68.dp
+private fun CardView(card: Card, width: Dp?, height: Dp, selected: Boolean = false, onClick: (() -> Unit)? = null) {
+    val shape = RoundedCornerShape(4.dp)
     Box(
         modifier = Modifier
-            .size(width, height)
-            .background(card.color.tint(), RoundedCornerShape(4.dp))
-            .border(BorderStroke(if (selected) 3.dp else 1.dp, if (selected) Color.Black else Color.DarkGray), RoundedCornerShape(4.dp))
+            .then(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth())
+            .height(height)
+            .background(card.color.tint(), shape)
+            .border(BorderStroke(if (selected) 3.dp else 1.dp, if (selected) Color.Black else Color.DarkGray), shape)
             .let { if (onClick != null) it.clickable(onClick = onClick) else it },
         contentAlignment = Alignment.Center,
     ) {
-        Text("${card.color.symbol()}${card.rank}", color = Color.White, fontSize = if (small) 12.sp else 18.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "${card.color.symbol()}${card.rank}",
+            color = Color.White,
+            fontSize = (height.value * 0.4f).sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
