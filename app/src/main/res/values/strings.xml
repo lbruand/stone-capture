@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Stone Capture</string>
+    <string name="your_turn_play">Your turn: pick a card, then a stone</string>
+    <string name="your_turn_claim">Claim a highlighted stone or end your turn</string>
+    <string name="opponent_turn">Opponent is thinking…</string>
+    <string name="you_won">You win!</string>
+    <string name="you_lost">You lose</string>
+    <string name="draw">Draw</string>
+    <string name="pass">Pass</string>
+    <string name="end_turn">End turn</string>
+    <string name="new_game">New game</string>
+    <string name="draw_pile">Draw pile: %1$d</string>
+</resources>

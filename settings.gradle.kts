@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "stone-capture"
 
 include(":core")
+include(":app")
