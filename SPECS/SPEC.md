@@ -213,15 +213,12 @@ A bot picks one action at a time and is called again until the turn ends. `BotVi
 the board, the bot's own hand and public counts (opponent hand size, draw pile size), so peeking
 is impossible by construction.
 
-```kotlin
-```
-
 Difficulty levels:
 
 | Level  | Strategy |
 |--------|----------|
 | Easy   | Random legal card/stone; claims only when trivially provable. |
-| Medium | Heuristic scoring of each (card, stone) move: formation potential, blocking the opponent, claiming whenever provable. |
+| Medium | Claims whatever is provable, then plays the move that most raises its estimated chance of winning a stone (sampled completions from unseen cards), favouring stones next to ones it owns. |
 | Hard   | Monte-Carlo rollouts (determinization of unseen cards) with a time budget (~500 ms). |
 
 Bots operate only on information a human would have (own hand + public board). They must
